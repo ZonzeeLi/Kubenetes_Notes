@@ -1,0 +1,30 @@
+# 创建本地存储类
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: Immediate
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-pv-1
+spec:
+  capacity:
+    storage: 4Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local-storage #通过指定存储类来设置卷的类型，需要和上面创建的存储类的名字保持一致
+  local: # 持久卷的类型为local
+    path: /mnt/disks/ssd1 # 持久卷的目录，这个目录不会被自动创建，需要手动处理
+  nodeAffinity: # 必须指定nodeAffinity
+    required:
+      nodeSelectorTerms: # 通过节点选择器，将Pod和存储调度到指定的节点上
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - k8s-worker1

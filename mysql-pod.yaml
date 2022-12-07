@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-password
+type: Opaque
+data: # 存储的是base64编码数据，不允许使用明文
+  PASSWORD: MTIzNDU2
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql-pod
+spec:
+  containers:
+    - name: mysql
+      image: mysql:5.7
+      env: # 设置
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom: # 使用环境变量
+            secretKeyRef:
+              name: mysql-password
+              key: PASSWORD # 引用data下的PASSWORD
+              optional: false # 此值为默认值；表示secret已经创建好
+      ports:
+        - containerPort: 3306
+      volumeMounts: # 在容器中挂载下面创建的卷
+        - mountPath: /var/lib/mysql # mysql镜像中存储数据的文件目录
+          name: data-volume
+        - mountPath: /etc/mysql/conf.d # mysql镜像中配置文件的路径
+          name: conf-volume
+          readOnly: true # 将配置文件设置为只读
+  volumes: # 创建一个卷
+    - name: conf-volume # 需要创建一个卷来注入下面自己的配置文件
+      configMap: # 卷的类型是ConfigMap
+        name: mysql-config # 引用下面创建好的ConfigMap
+    - name: data-volume # 不再使用hostPath
+      persistentVolumeClaim:
+        claimName: local-pvc-1 # 使用创建的PVC
+      # hostPath:
+      #   # 宿主机上目录位置
+      #  path: /home/mysql/data # 将容器中的/var/lib/mysql目录映射到了主机上的该目录
+      #  type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+data:
+  mysql.cnf: | # 创建自己的配置文件
+    [mysqld]
+    character-set-server=utf8mb4
+    collation-server=utf8mb4_general_ci
+    init-connect='SET NAMES utf8mb4'
+    
+    [client]
+    default-character-set=utf8mb4
+    
+    [mysql]
+    default-character-set=utf8mb4
